@@ -2,89 +2,203 @@
 let http = require("http");
 let express = require("express");
 let socket = require("socket.io");
+let Matcher = require("./match");
 
 let app = express();
 let server = http.createServer(app);
 let io = socket(server);
-
-let player = [];
-
-function get_id(sid) {
-    for(let p of player) {
-        if(p.sid == sid) {
-            return p.id;
-        }
-    }
-
-    return null;
-}
+let matcher = new Matcher();
 
 io.on("connection", sk => {
-    sk.on("info", info => {
+    sk.on("room", () => {
+        matcher.send({
+            player : {
+                sk : sk
+            },
+            event : {
+                state : sk.id,
+                name : "room",
+                data : JSON.stringify(matcher.get_all_room())
+            }
+        })
+    });
+
+    sk.on("create", info => {
+        let player_info = JSON.parse(info);
+        let created_info = {
+            name : player_info.player_name,
+            sk : sk
+        }
+
+        matcher.create({
+            name : player_info.room_name,
+            limit : player_info.room_limit,
+            player : created_info
+        });
+        matcher.send({
+            player : {
+                sk : sk
+            },
+            event : {
+                state : "ALL",
+                name : "lead",
+                data : JSON.stringify(created_info)
+            }
+        });
+    }) ;
+
+    sk.on("add", info => {
         let player_info = JSON.parse(info);
 
-        if(player.length == 0) sk.emit("lead", "");
-        player.push({ id : player_info.id, sid : sk.id });
-
-        console.log(player_info.id + " connected! " + player.length);
+        matcher.add({
+            name : player_info.room_name,
+            player : {
+                name : player_info.player_name,
+                sk : sk
+            } 
+        });
     });
 
     sk.on("ready", () => {
-        player.map(p => {
-            if(p.sid != sk.id) {
-                sk.emit("enter", JSON.stringify({ id : p.id, length : player.length }));
-                io.to(p.sid).emit("enter", JSON.stringify({ id : get_id(sk.id), length : player.length }));
+        matcher.send({
+            player : {
+                sk : sk
+            },
+            event : {
+                state : "ALL",
+                name : "enter",
+                data : JSON.stringify([matcher.get_player({
+                    name : "",
+                    sk : sk
+                })])
+            }
+        });
+        matcher.send({
+            player : {
+                sk : sk
+            },
+            event : {
+                state : sk.id,
+                name : "info",
+                data : JSON.stringify(matcher.get_player({
+                    name : "",
+                    sk : sk
+                }))
+            }
+        });
+        matcher.send({
+            player : {
+                sk : sk
+            },
+            event : {
+                state : sk.id,
+                name : "enter",
+                data : JSON.stringify(matcher.get_room(sk).player)
             }
         });
     });
 
     sk.on("open", () => {
-        player.map(p => {
-            io.to(p.sid).emit("open", JSON.stringify({ id : get_id(sk.id) }));
+        matcher.send({
+            player : {
+                sk : sk
+            },
+            event : {
+                state : "ALL",
+                name : "open",
+                data : JSON.stringify(matcher.get_player({
+                    name : "",
+                    sk : sk
+                }))
+            }
         });
     });
 
     sk.on("ring", () => {
-        player.map(p => {
-            io.to(p.sid).emit("ring", JSON.stringify({ id : get_id(sk.id) }));
+        matcher.send({
+            player : {
+                sk : sk
+            },
+            event : {
+                state : "ALL",
+                name : "ring",
+                data : JSON.stringify(matcher.get_player({
+                    name : "",
+                    sk : sk
+                }))
+            }
         });
     });
 
     sk.on("correct", info => {
-        player.map(p => {
-            io.to(p.sid).emit("correct", info);
+        matcher.send({
+            player : {
+                sk : sk
+            },
+            event : {
+                state : "ALL",
+                name : "correct",
+                data : info
+            }
         });
     });
 
     sk.on("wrong", info => {
-        player.map(p => {
-            io.to(p.sid).emit("wrong", info);
+        matcher.send({
+            player : {
+                sk : sk
+            },
+            event : {
+                state : "ALL",
+                name : "wrong",
+                data : info
+            }
         });
     });
 
     sk.on("open_p", info => {
-        player.map(p => {
-            if(p.sid != sk.id) {
-                io.to(p.sid).emit("open_p", info);
+        matcher.send({
+            player : {
+                sk : sk
+            },
+            event : {
+                state : "WITHOUT",
+                name : "open_p",
+                data : info
             }
         });
     });
 
     sk.on("close_p", info => {
-        player.map(p => {
-            if(p.sid != sk.id) {
-                io.to(p.sid).emit("close_p", info);
+        matcher.send({
+            player : {
+                sk : sk
+            },
+            event : {
+                state : "WITHOUT",
+                name : "close_p",
+                data : info
             }
         });
     });
 
     sk.on("disconnect", () => {
-        console.log(get_id(sk.id) + " disconnected! " + player.length);
-        
-        player.map(p => {
-            io.to(p.sid).emit("out", JSON.stringify({ id : get_id(sk.id) }));
+        matcher.send({
+            player : {
+                sk : sk
+            },
+            event : {
+                state : "ALL",
+                name : "out",
+                data : JSON.stringify(matcher.get_player({
+                    name : "",
+                    sk : sk
+                }))
+            }
         });
-        player.splice(player.map(p => p.sid).indexOf(sk.id), 1);
+        matcher.delete({
+            sk : sk
+        });
     });
 });
 

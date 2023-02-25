@@ -6,17 +6,26 @@ class Room extends React.Component {
         super(props);
 
         this.socket = this.props.socket;
-        this.state = {
-            room_component : [
-                [
-                    "test",
-                    this.getRoomComponent("test", null)
-                ]
-            ]
-        }
-    }
+        this.state = { room_component : [] }
 
-    getRoomComponent(name, ref) {
+        this.socket.on("room", info => {
+            let all_room = JSON.parse(info);
+            this.state.room_component = [];
+
+            for(let room of all_room) {
+                this.state.room_component.push([
+                    room,
+                    this.getRoomComponent(room)
+                ])
+            }
+        });
+        
+        this.iter = setInterval(() => {
+            this.socket.emit("room", "");
+        }, 1000);
+    }
+    
+    getRoomComponent(room_info) {
         return (
             <div
                 style={{
@@ -62,7 +71,7 @@ class Room extends React.Component {
                             top: "50%",
                         }}
                     >
-                        {name}
+                        {room_info.name}
                     </div>
                 </div>
                 <div
@@ -76,18 +85,26 @@ class Room extends React.Component {
                     }}
                 >
                     <div
-                        ref={ref}
                         style={{
                             position: "relative",
                             transform: "translateY(-50%)",
                             top: "50%",
                         }}
                     >
-                        4/4
+                        {room_info.player.length + "/" + room_info.limit}
                     </div>
                 </div>
             </div>
         );
+    }
+
+    handleCreateRoom(e) {
+        let room_name = prompt("Please write your room's name."); 
+
+        this.props.renderHalliGalli({
+            room_name : room_name,
+            room_state : "create"
+        });
     }
 
     getMenuComponent() {
@@ -112,6 +129,7 @@ class Room extends React.Component {
                     <input
                         type="button"
                         value="Create Room"
+                        onClick={this.handleCreateRoom.bind(this)}
                         style={{
                             position: "relative",
                             transform: "translate(-50%, -50%)",
