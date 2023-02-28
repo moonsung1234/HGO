@@ -17,8 +17,9 @@ class HalliGalli extends React.Component {
     this.socket = this.props.socket;
     this.is_lead = false;
     this.images = this.importAll(require.context("./image", false, /\.(png|PNG|jpe?g|svg)$/));
-
-    this.enter_room();
+    this.state = {
+      card_component : []
+    }
 
     this.socket.on("lead", info => {
       let player_info = JSON.parse(info);
@@ -27,7 +28,11 @@ class HalliGalli extends React.Component {
       this.is_lead = true;
 
       this.hg = new HG();
-      this.hg.enter(this.my_info.sk.id);
+      this.hg.enter(this.my_info.id);
+    });
+
+    this.socket.on("ready", () => {
+      this.socket.emit("ready", "");
     });
 
     this.socket.on("info", info => {
@@ -41,11 +46,11 @@ class HalliGalli extends React.Component {
         let ref = createRef();
         let ref2 = createRef();
   
-        if(this.is_lead) this.hg.enter(player.sk.id);
+        if(this.is_lead) this.hg.enter(player.id);
   
         this.state.card_component.push([
-          player_info,
-          this.getCardComponent(player_info, ref, ref2),
+          player,
+          this.getCardComponent(player, ref, ref2),
           ref,
           ref2
         ]);
@@ -57,7 +62,7 @@ class HalliGalli extends React.Component {
     this.socket.on("out", info => {
       let player_info = JSON.parse(info);
 
-      if(this.is_lead) this.hg.out(player_info.sk.id);
+      if(this.is_lead) this.hg.out(player_info.id);
       
       this.setState({
         card_component : this.state.card_component.filter(c => c[0].name != player_info.name)
@@ -68,11 +73,11 @@ class HalliGalli extends React.Component {
       if(!this.is_lead) return;
 
       let player_info = JSON.parse(info);
-      let [card, next_player, callback] = this.hg.open(player_info.sk.id);
+      let [card, next_player, callback] = this.hg.open(player_info.id);
 
       if(card) {
         this.state.card_component.map(async (c) => {
-          if(c[0].sk.id == player_info.sk.id) {
+          if(c[0].id == player_info.id) {
             player_info.card = card;
 
             this.socket.emit("open_p", JSON.stringify(player_info));
@@ -84,12 +89,12 @@ class HalliGalli extends React.Component {
           
             await callback();
 
-            player_info.name = next_player;
+            player_info.id = next_player;
 
             this.socket.emit("close_p", JSON.stringify(player_info));
 
             this.state.card_component.map(_c => {
-              if(_c[0].sl.id == next_player) {
+              if(_c[0].id == next_player) {
                 let tag = _c[2].current;
 
                 tag.style.transform = "translateX(-50%) rotateY(0deg)";
@@ -104,9 +109,9 @@ class HalliGalli extends React.Component {
       if(!this.is_lead) return;
 
       let player_info = JSON.parse(info);
-      let ring = this.hg.ring(player_info.sk.id);
+      let ring = this.hg.ring(player_info.id);
 
-      player_info.score = this.hg.get_score(player_info.sk.id);
+      player_info.score = this.hg.get_score(player_info.id);
 
       if(ring == true) {
         this.socket.emit("correct", JSON.stringify(player_info));
@@ -123,7 +128,7 @@ class HalliGalli extends React.Component {
       let player_info = JSON.parse(info);
 
       this.state.card_component.map(c => {
-        if(c[0].sk.id == player_info.sk.id) {
+        if(c[0].id == player_info.id) {
           c[3].current.innerHTML = player_info.score;
           c[3].current.style.color = "yellow";
           
@@ -138,7 +143,7 @@ class HalliGalli extends React.Component {
       let player_info = JSON.parse(info);
 
       this.state.card_component.map(c => {
-        if(c[0].sk.id == player_info.sk.id) {
+        if(c[0].id == player_info.id) {
           c[3].current.innerHTML = player_info.score;
           c[3].current.style.color = "red";
           
@@ -153,7 +158,7 @@ class HalliGalli extends React.Component {
       let player_info = JSON.parse(info);
 
       this.state.card_component.map(async (c) => {
-        if(c[0].sk.id == player_info.sk.id) {
+        if(c[0].id == player_info.id) {
           let [tag, image] = [c[2].current, c[2].current.querySelector("#card_image")];
         
           image.src = this.images[player_info.card + ".PNG"];
@@ -166,7 +171,7 @@ class HalliGalli extends React.Component {
       let player_info = JSON.parse(info);
 
       this.state.card_component.map(c => {
-        if(c[0].sk.id == player_info.sk.id) {
+        if(c[0].id == player_info.id) {
           let tag = c[2].current;
 
           tag.style.transform = "translateX(-50%) rotateY(0deg)";
@@ -174,7 +179,7 @@ class HalliGalli extends React.Component {
       });
     });
 
-    this.socket.emit("ready", "");
+    this.enter_room();
   }
 
   importAll(r) {

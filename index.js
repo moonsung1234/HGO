@@ -11,38 +11,42 @@ let matcher = new Matcher();
 
 io.on("connection", sk => {
     sk.on("room", () => {
-        matcher.send({
-            player : {
-                sk : sk
-            },
-            event : {
-                state : sk.id,
-                name : "room",
-                data : JSON.stringify(matcher.get_all_room())
-            }
-        })
+        sk.emit("room", JSON.stringify(matcher.get_all_room()));
     });
 
     sk.on("create", info => {
         let player_info = JSON.parse(info);
-        let created_info = {
-            name : player_info.player_name,
-            sk : sk
-        }
 
         matcher.create({
             name : player_info.room_name,
             limit : player_info.room_limit,
-            player : created_info
+            sk : sk,
+            player : {
+                name : player_info.player_name,
+                id : sk.id,
+            }
         });
         matcher.send({
             player : {
-                sk : sk
+                id : sk.id,
             },
             event : {
                 state : "ALL",
                 name : "lead",
-                data : JSON.stringify(created_info)
+                data : JSON.stringify({
+                    name : player_info.player_name,
+                    id : sk.id
+                })
+            }
+        });
+        matcher.send({
+            player : {
+                id : sk.id,
+            },
+            event : {
+                state : sk.id,
+                name : "ready",
+                data : ""
             }
         });
     }) ;
@@ -52,48 +56,62 @@ io.on("connection", sk => {
 
         matcher.add({
             name : player_info.room_name,
+            sk : sk,
             player : {
                 name : player_info.player_name,
-                sk : sk
+                id : sk.id,
             } 
+        });
+        matcher.send({
+            player : {
+                id : sk.id,
+            },
+            event : {
+                state : sk.id,
+                name : "ready",
+                data : ""
+            }
         });
     });
 
     sk.on("ready", () => {
         matcher.send({
             player : {
-                sk : sk
+                id : sk.id
             },
             event : {
-                state : "ALL",
+                state : "WITHOUT",
                 name : "enter",
-                data : JSON.stringify([matcher.get_player({
-                    name : "",
-                    sk : sk
-                })])
+                data : JSON.stringify([
+                    matcher.get_player({
+                        name : "",
+                        id : sk.id
+                    })
+                ])
             }
         });
         matcher.send({
             player : {
-                sk : sk
+                id : sk.id
             },
             event : {
                 state : sk.id,
                 name : "info",
                 data : JSON.stringify(matcher.get_player({
                     name : "",
-                    sk : sk
+                    id : sk.id
                 }))
             }
         });
+        console.log(matcher.get_room(sk.id));
         matcher.send({
             player : {
-                sk : sk
+                id : sk.id
             },
             event : {
                 state : sk.id,
                 name : "enter",
-                data : JSON.stringify(matcher.get_room(sk).player)
+                data : JSON.stringify(matcher.get_room(sk.id).player)
             }
         });
     });
@@ -101,14 +119,14 @@ io.on("connection", sk => {
     sk.on("open", () => {
         matcher.send({
             player : {
-                sk : sk
+                id : sk.id
             },
             event : {
                 state : "ALL",
                 name : "open",
                 data : JSON.stringify(matcher.get_player({
                     name : "",
-                    sk : sk
+                    id : sk.id
                 }))
             }
         });
@@ -117,14 +135,14 @@ io.on("connection", sk => {
     sk.on("ring", () => {
         matcher.send({
             player : {
-                sk : sk
+                id : sk.id
             },
             event : {
                 state : "ALL",
                 name : "ring",
                 data : JSON.stringify(matcher.get_player({
                     name : "",
-                    sk : sk
+                    id : sk.id
                 }))
             }
         });
@@ -133,7 +151,7 @@ io.on("connection", sk => {
     sk.on("correct", info => {
         matcher.send({
             player : {
-                sk : sk
+                id : sk.id
             },
             event : {
                 state : "ALL",
@@ -146,7 +164,7 @@ io.on("connection", sk => {
     sk.on("wrong", info => {
         matcher.send({
             player : {
-                sk : sk
+                id : sk.id
             },
             event : {
                 state : "ALL",
@@ -159,7 +177,7 @@ io.on("connection", sk => {
     sk.on("open_p", info => {
         matcher.send({
             player : {
-                sk : sk
+                id : sk.id
             },
             event : {
                 state : "WITHOUT",
@@ -172,7 +190,7 @@ io.on("connection", sk => {
     sk.on("close_p", info => {
         matcher.send({
             player : {
-                sk : sk
+                id : sk.id
             },
             event : {
                 state : "WITHOUT",
@@ -185,19 +203,19 @@ io.on("connection", sk => {
     sk.on("disconnect", () => {
         matcher.send({
             player : {
-                sk : sk
+                id : sk.id
             },
             event : {
                 state : "ALL",
                 name : "out",
                 data : JSON.stringify(matcher.get_player({
                     name : "",
-                    sk : sk
+                    id : sk.id
                 }))
             }
         });
         matcher.delete({
-            sk : sk
+            id : sk.id
         });
     });
 });

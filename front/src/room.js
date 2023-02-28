@@ -16,8 +16,10 @@ class Room extends React.Component {
                 this.state.room_component.push([
                     room,
                     this.getRoomComponent(room)
-                ])
+                ]);
             }
+
+            this.setState(this.state);
         });
         
         this.iter = setInterval(() => {
@@ -25,9 +27,28 @@ class Room extends React.Component {
         }, 1000);
     }
     
+    handleCreateRoom(e) {
+        let room_name = prompt("Please write your room's name."); 
+
+        this.props.renderHalliGalli({
+            room_name : room_name,
+            room_state : "create"
+        });
+    }
+
+    handleEnterRoom(e) {
+        let room_name = e.currentTarget.querySelector("#name").innerText;
+
+        this.props.renderHalliGalli({
+            room_name : room_name,
+            room_state : "add"
+        });
+    }
+
     getRoomComponent(room_info) {
         return (
             <div
+                onClick={this.handleEnterRoom.bind(this)}
                 style={{
                     width: "100%",
                     height: "12%",
@@ -96,15 +117,6 @@ class Room extends React.Component {
                 </div>
             </div>
         );
-    }
-
-    handleCreateRoom(e) {
-        let room_name = prompt("Please write your room's name."); 
-
-        this.props.renderHalliGalli({
-            room_name : room_name,
-            room_state : "create"
-        });
     }
 
     getMenuComponent() {
